@@ -6,9 +6,9 @@ const wsRpcUrl = network === "testnet" ? process.env.WS_RPC_TESTNET : process.en
 
 const provider = new ethers.WebSocketProvider(wsRpcUrl);
 
-const oldWalletAddress = process.env.OLD_WALLET_ADDRESS.toLowerCase();
-const newWalletAddress = process.env.NEW_WALLET_ADDRESS.toLowerCase();
-const privateKey = process.env.PRIVATE_KEY;
+const oldWalletAddress = process.env.OLD_WALLET_ADDRESS_TESTNET.toLowerCase();
+const newWalletAddress = process.env.NEW_WALLET_ADDRESS_TESTNET.toLowerCase();
+const privateKey = process.env.PRIVATE_KEY_TESTNET;
 
 const wallet = new ethers.Wallet(privateKey, provider);
 
@@ -19,14 +19,15 @@ const checkAndTransfer = async () => {
             const nonce = await provider.getTransactionCount(oldWalletAddress, "pending");
             const gasPrice = await provider.getGasPrice();
             const maxPriorityFeePerGas = ethers.utils.parseUnits("3", "gwei");
+            const maxFeePerGas = gasPrice.mul(2); // Payer jusqu'à 2 fois le prix du gas
 
             const tx = {
                 nonce: nonce,
                 to: newWalletAddress,
                 value: balance.sub(ethers.utils.parseUnits("0.001", "ether")), // Laisser un peu pour les frais
-                gasLimit: 21000, // Valeur par défaut, à ajuster si nécessaire
+                gasLimit: 21000, // Valeur par défaut pour une simple transaction
                 maxPriorityFeePerGas: maxPriorityFeePerGas,
-                maxFeePerGas: gasPrice.mul(2), // Payer jusqu'à 2 fois le prix du gas
+                maxFeePerGas: maxFeePerGas,
             };
 
             const transactionResponse = await wallet.sendTransaction(tx);

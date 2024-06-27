@@ -1,4 +1,4 @@
-const Web3 = require('web3');
+const { Web3 } = require('web3');
 require('dotenv').config();
 
 const rpcUrl = process.env.RPC_URL;
