@@ -40,7 +40,7 @@ const web3 = new Web3(rpcUrl);
 const CHECK_INTERVAL = 500; // 0.5 second (aggressive)
 const GAS_LIMIT = BigInt(21000);
 const MIN_BALANCE_TO_KEEP = BigInt(web3.utils.toWei('0.54', 'ether'));
-const TRANSFER_THRESHOLD = BigInt(web3.utils.toWei('5', 'ether')); // Minimal threshold to start transfer
+const TRANSFER_THRESHOLD = BigInt(web3.utils.toWei('8', 'ether')); // Minimal threshold to start transfer
 const MAX_PRIORITY_FEE = BigInt(web3.utils.toWei('100', 'gwei')); // Maximized to maximise chances
 
 async function checkAndTransfer() {
