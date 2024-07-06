@@ -9,7 +9,7 @@ function getEnvValue(key, testnetKey) {
 }
 
 const requiredEnvVars = [
-    'RPC_URL', 'RPC_URL_TESTNET',
+    'MY_RPC_URL', 'RPC_URL_TESTNET',
     'OLD_WALLET_ADDRESS', 'OLD_WALLET_ADDRESS_TESTNET',
     'NEW_WALLET_ADDRESS', 'NEW_WALLET_ADDRESS_TESTNET',
     'PRIVATE_KEY', 'PRIVATE_KEY_TESTNET'
@@ -22,7 +22,8 @@ if (missingEnvVars.length > 0) {
     process.exit(1);
 }
 
-const rpcUrl = getEnvValue('RPC_URL', 'RPC_URL_TESTNET');
+const rpcUrl = getEnvValue('MY_RPC_URL', 'RPC_URL_TESTNET');
+console.log(`Script running on network: ${rpcUrl}`);
 const oldWalletAddress = getEnvValue('OLD_WALLET_ADDRESS', 'OLD_WALLET_ADDRESS_TESTNET')?.toLowerCase();
 const newWalletAddress = getEnvValue('NEW_WALLET_ADDRESS', 'NEW_WALLET_ADDRESS_TESTNET')?.toLowerCase();
 const privateKey = getEnvValue('PRIVATE_KEY', 'PRIVATE_KEY_TESTNET');
@@ -39,8 +40,8 @@ if (!oldWalletAddress || !newWalletAddress || !privateKey) {
 const web3 = new Web3(rpcUrl);
 const CHECK_INTERVAL = 500; // 0.5 second (aggressive)
 const GAS_LIMIT = BigInt(21000);
-const MIN_BALANCE_TO_KEEP = BigInt(web3.utils.toWei('0.54', 'ether'));
-const TRANSFER_THRESHOLD = BigInt(web3.utils.toWei('8', 'ether')); // Minimal threshold to start transfer
+const MIN_BALANCE_TO_KEEP = BigInt(web3.utils.toWei('0', 'ether'));
+const TRANSFER_THRESHOLD = BigInt(web3.utils.toWei('0', 'ether')); // Minimal threshold to start transfer
 const MAX_PRIORITY_FEE = BigInt(web3.utils.toWei('100', 'gwei')); // Maximized to maximise chances
 
 async function checkAndTransfer() {

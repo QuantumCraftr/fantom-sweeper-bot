@@ -2,95 +2,111 @@ const { Web3 } = require('web3');
 require('dotenv').config();
 
 // Configuration
-const network = process.env.NETWORK || process.argv[2] || "mainnet";
-const rpcUrl = getEnvValue('RPC_URL', 'RPC_URL_TESTNET');
-const oldWalletAddress = getEnvValue('OLD_WALLET_ADDRESS', 'OLD_WALLET_ADDRESS_TESTNET')?.toLowerCase();
-const newWalletAddress = getEnvValue('NEW_WALLET_ADDRESS', 'NEW_WALLET_ADDRESS_TESTNET')?.toLowerCase();
-const privateKey = getEnvValue('PRIVATE_KEY', 'PRIVATE_KEY_TESTNET');
+const NETWORK = process.env.NETWORK || 'fantom';
+const WS_URL = process.env.WS_RPC_URL || 'wss://wsapi.fantom.network';
+const OLD_WALLET_ADDRESS = process.env.OLD_WALLET_ADDRESS;
+const NEW_WALLET_ADDRESS = process.env.NEW_WALLET_ADDRESS;
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+const GAS_LIMIT = 21000;
+const MAX_PRIORITY_FEE = Web3.utils.toWei('100', 'gwei');
+const MIN_BALANCE_TO_KEEP = Web3.utils.toWei('0.01', 'ether');
 
-const web3 = new Web3(rpcUrl);
+// Initialize Web3 with WebSocket provider
+const web3 = new Web3(new Web3.providers.WebsocketProvider(WS_URL));
 
-const GAS_LIMIT = BigInt(21000);
-const MAX_PRIORITY_FEE = BigInt(web3.utils.toWei('100', 'gwei'));
-const POLLING_INTERVAL = 1000; // 1 second
-const MIN_BALANCE_TO_KEEP = web3.utils.toWei('0.54', 'ether');
-const TRANSFER_THRESHOLD = web3.utils.toWei('100', 'ether');
-
-let lastCheckedBlock = 26225542; // Ajustez ce numéro selon vos besoins
-
-function getEnvValue(key, testnetKey) {
-    return network === "testnet" ? process.env[testnetKey] : process.env[key];
-}
-
-async function checkNewTransactions() {
-    try {
-        const latestBlock = await web3.eth.getBlockNumber();
-        
-        if (latestBlock > lastCheckedBlock) {
-            console.log(`Checking blocks from ${lastCheckedBlock + 1} to ${latestBlock}`);
-            for (let i = lastCheckedBlock + 1; i <= latestBlock; i++) {
-                const block = await web3.eth.getBlock(i, false);
-                if (block && block.transactions) {
-                    for (const txHash of block.transactions) {
-                        const tx = await web3.eth.getTransaction(txHash);
-                        if (tx && tx.to && tx.to.toLowerCase() === oldWalletAddress) {
-                            console.log(`Detected incoming transaction to compromised wallet in block ${i}: ${tx.hash}`);
-                            await checkAndTransfer();
-                        }
-                    }
-                }
-            }
-            lastCheckedBlock = latestBlock;
-        }
-        
-        // Vérifiez le solde même s'il n'y a pas de nouvelles transactions
-        await checkAndTransfer();
-    } catch (error) {
-        console.error('Error checking new transactions:', error);
-    }
+// Function to handle websocket connection errors
+const setupWebsocketProvider = () => {
+    const provider = new Web3.providers.WebsocketProvider(WS_URL);
     
-    setTimeout(checkNewTransactions, POLLING_INTERVAL);
+    provider.on('error', e => console.error('WS Error', e));
+    provider.on('end', e => {
+        console.log('WS closed');
+        console.log('Attempting to reconnect...');
+        setupWebsocketProvider();
+    });
+
+    web3.setProvider(provider);
+};
+
+// Function to create and sign a transaction
+async function createAndSignTransaction(value, maxPriorityFeePerGas, maxFeePerGas) {
+    const nonce = await web3.eth.getTransactionCount(OLD_WALLET_ADDRESS, 'pending');
+    const txObject = {
+        from: OLD_WALLET_ADDRESS,
+        nonce: web3.utils.toHex(nonce),
+        to: NEW_WALLET_ADDRESS,
+        value: web3.utils.toHex(value),
+        gas: web3.utils.toHex(GAS_LIMIT),
+        maxPriorityFeePerGas: web3.utils.toHex(maxPriorityFeePerGas),
+        maxFeePerGas: web3.utils.toHex(maxFeePerGas)
+    };
+    return web3.eth.accounts.signTransaction(txObject, PRIVATE_KEY);
 }
 
-async function checkAndTransfer() {
+// Function to transfer funds
+async function transferFunds() {
     try {
-        const balance = BigInt(await web3.eth.getBalance(oldWalletAddress));
+        const balance = BigInt(await web3.eth.getBalance(OLD_WALLET_ADDRESS));
         console.log(`Current balance: ${web3.utils.fromWei(balance.toString(), 'ether')} FTM`);
 
-        if (balance > BigInt(TRANSFER_THRESHOLD)) {
-            const gasPrice = BigInt(await web3.eth.getGasPrice());
-            const maxFeePerGas = gasPrice + MAX_PRIORITY_FEE;
-            const estimatedGasCost = GAS_LIMIT * maxFeePerGas;
-            const valueToSend = balance - estimatedGasCost - BigInt(MIN_BALANCE_TO_KEEP);
-
-            if (valueToSend > 0n) {
-                const tx = await createAndSignTransaction(valueToSend, MAX_PRIORITY_FEE, maxFeePerGas);
-                const txReceipt = await web3.eth.sendSignedTransaction(tx.rawTransaction);
-                console.log(`Emergency transfer sent with hash: ${txReceipt.transactionHash}`);
-            } else {
-                console.log('Not enough balance to transfer after keeping minimum balance.');
-            }
-        } else {
-            console.log('Balance below transfer threshold.');
+        if (balance <= BigInt(MIN_BALANCE_TO_KEEP)) {
+            console.log('Balance too low for transfer');
+            return;
         }
+
+        const gasPrice = BigInt(await web3.eth.getGasPrice());
+        const maxFeePerGas = gasPrice + BigInt(MAX_PRIORITY_FEE);
+        const estimatedGasCost = BigInt(GAS_LIMIT) * maxFeePerGas;
+        const valueToSend = balance - estimatedGasCost - BigInt(MIN_BALANCE_TO_KEEP);
+
+        if (valueToSend <= 0n) {
+            console.log('Insufficient balance to transfer after keeping minimum balance');
+            return;
+        }
+
+        const tx = await createAndSignTransaction(valueToSend, MAX_PRIORITY_FEE, maxFeePerGas);
+        const receipt = await web3.eth.sendSignedTransaction(tx.rawTransaction);
+        console.log(`Transaction sent: ${receipt.transactionHash}`);
     } catch (error) {
-        console.error(`Error in checkAndTransfer:`, error);
+        console.error(`Transfer error: ${error.message}`);
     }
 }
 
-async function createAndSignTransaction(value, maxPriorityFeePerGas, maxFeePerGas) {
-    const nonce = await web3.eth.getTransactionCount(oldWalletAddress, 'pending');
-    const txObject = {
-        from: oldWalletAddress,
-        nonce: nonce,
-        to: newWalletAddress,
-        value: value.toString(),
-        gas: GAS_LIMIT.toString(),
-        maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
-        maxFeePerGas: maxFeePerGas.toString()
-    };
-    return web3.eth.accounts.signTransaction(txObject, privateKey);
+// Function to monitor pending transactions
+async function monitorPendingTransactions() {
+    const subscription = await web3.eth.subscribe('pendingTransactions');
+
+    subscription.on('data', async (txHash) => {
+        try {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const tx = await web3.eth.getTransaction(txHash);
+            if (tx && tx.to && tx.to.toLowerCase() === OLD_WALLET_ADDRESS.toLowerCase()) {
+                console.log(`Incoming transaction detected for your address: ${txHash}`);
+                await transferFunds();
+            } else if (tx) {
+                console.log(`Transaction ${txHash} not related to your address, ignoring.`);
+            } else {
+                console.log(`Transaction ${txHash} not found, may have been processed quickly.`);
+            }
+        } catch (error) {
+            console.error(`Error processing transaction ${txHash}: ${error.message}`);
+        }
+    });
+
+    subscription.on('error', (error) => {
+        console.error(`Subscription error: ${error.message}`);
+    });
 }
 
-console.log(`Script started in ${network} mode`);
-checkNewTransactions();
+// Main function
+async function main() {
+    setupWebsocketProvider();
+    console.log('Starting to monitor pending transactions...');
+    await monitorPendingTransactions();
+}
+
+// Start the script
+main().catch((error) => {
+    console.error(`Main function error: ${error.message}`);
+    process.exit(1);
+});

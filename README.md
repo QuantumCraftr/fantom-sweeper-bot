@@ -2,7 +2,7 @@
 
 # Fantom Sweeper Recovery Bot
 
-The Fantom Sweeper Recovery Bot is a Node.js script designed to quickly recover funds from a compromised wallet on the Fantom Opera blockchain. It continuously monitors a specified wallet address and automatically transfers any incoming funds to a secure wallet address as soon as they are detected.
+The Fantom Sweeper Recovery Bot is a Node.js script designed to quickly recover funds from a compromised wallet on the Fantom Opera blockchain (But can be used for Ethereum or EVM blockchains, just adapt the endpoints). It continuously monitors a specified wallet address and automatically transfers any incoming funds to a secure wallet address as soon as they are detected.
 
 >>Intended as education purpose only, to try to recover funds that are watched by a sweeper bot
 
@@ -13,6 +13,7 @@ The Fantom Sweeper Recovery Bot is a Node.js script designed to quickly recover 
 - Supports both mainnet and testnet
 - Configurable minimum balance threshold for transfers
 - Continuous operation with error handling and automatic retries
+- 2 versions of the script: One using http and auto-retry, and one using Websocket, listening to tx pool.
 
 ## Prerequisites
 
@@ -28,11 +29,13 @@ The Fantom Sweeper Recovery Bot is a Node.js script designed to quickly recover 
 5. Create a `.env` file in the project root directory with the following content:
 6. ```RPC_URL_MAINNET=<Your Fantom Opera mainnet RPC URL>
 ```RPC_URL_TESTNET=<Your Fantom Opera testnet RPC URL>
+WS_RPC_URL=wss://go.getblock.io/PROJECT_ID
+WS_RPC_TESTNET=wss://ws.testnet.fantom.network/
 OLD_WALLET_ADDRESS_MAINNET=<Compromised wallet address for mainnet>
 OLD_WALLET_ADDRESS_TESTNET=<Compromised wallet address for testnet>
 NEW_WALLET_ADDRESS_MAINNET=<Secure wallet address for mainnet>
 NEW_WALLET_ADDRESS_TESTNET=<Secure wallet address for testnet>
-PRIVATE_KEY_MAINNET=<Private key of the compromised wallet for mainnet>
+PRIVATE_KEY=<Private key of the compromised wallet for mainnet>
 PRIVATE_KEY_TESTNET=<Private key of the compromised wallet for testnet>
 ```
 7. Replace the placeholders with your actual values.
@@ -41,6 +44,7 @@ PRIVATE_KEY_TESTNET=<Private key of the compromised wallet for testnet>
 
 To run the bot, use one of the following commands:
 
+### HTTP 
 For mainnet:
 `NETWORK=mainnet node index.js`
 
@@ -57,6 +61,15 @@ For testnet:
 `node index.js testnet`
 
 The bot will start monitoring the specified wallet and log its activities to the console.
+
+### Websocket script:
+`node index-ws.js mainnet`
+
+## Adapting for Ethereum
+To adapt the scripts for Ethereum:
+
+Modify the RPC and WebSocket URLs in the .env file to point to Ethereum nodes.
+Adjust the GAS_LIMIT and MAX_PRIORITY_FEE variables in the scripts as needed for the Ethereum network.
 
 ## Warning
 
